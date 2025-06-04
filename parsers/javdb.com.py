@@ -5,6 +5,7 @@ from urllib.parse import urlparse
 from camo_sign import create_signed_url
 from dotenv import load_dotenv
 import os
+from lzhbrowser import Browser
 
 load_dotenv()
 
@@ -126,9 +127,8 @@ def html_to_info(html, url):
 
     return info
 
-async def parse(html, url):
-
-    info = html_to_info(html, url)
-
-    return info
-
+async def parse(url:str, browser:Browser):
+    html = await browser.fetch(url)
+    if not html:
+        return None
+    return html_to_info(html, url)

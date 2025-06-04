@@ -86,16 +86,13 @@ async def handle_query_request(request):
 
     browser: Browser = request.app["browser"]
 
-    html = await browser.fetch(url)
-
-    if not html:
-        raise web.HTTPBadRequest(text="Maybe the URL is wrong, please try again later")
-
     parse_function = await load_parse_function(parser_file)
     if asyncio.iscoroutinefunction(parse_function):
-        info = await parse_function(html, url)
+        info = await parse_function(url, browser)
     else:
-        info = parse_function(html, url)
+        info = parse_function(url, browser)
+    if not info:
+        raise web.HTTPBadRequest(text="Maybe the URL is wrong, please try again later")
     feed = info_to_feed(info)
     return web.Response(text=feed, content_type='application/xml')
 
