@@ -19,10 +19,8 @@ logger = get_logger(logging.INFO)
 HOST = os.getenv("HOST", '127.0.0.1')
 APP_PATH = os.getenv("APP_PATH", "")
 PORT = int(os.getenv("PORT", 8000))
-FETCH_TOKEN = os.getenv("FETCH_TOKEN", "")
-FETCH_SERVER = os.getenv("FETCH_SERVER", "")
-# AIOFETCHER_MAX_CONCURRENT = int(os.getenv("AIOFETCHER_MAX_CONCURRENT", 10))
-# fetcher_semaphore = asyncio.Semaphore(AIOFETCHER_MAX_CONCURRENT)
+B_PROXY_SERVER = os.getenv("B_PROXY_SERVER", "socks5://127.0.0.1:1080")
+B_MAX_PAGES:int = int(os.getenv("B_MAX_PAGES", 8))
 
 def timestamp_to_RFC822(ts):
     return datetime.fromtimestamp(ts).strftime('%a, %d %b %Y %H:%M:%S +0000')
@@ -105,6 +103,8 @@ async def create_app():
     logger.info("brower initing ...")
     browser = await Browser.create(
         headless=False,
+        max_pages=B_MAX_PAGES,
+        proxy={"server":B_PROXY_SERVER},
         logging_level=logging.INFO
     )
     logger.info("brower inited")
@@ -117,7 +117,6 @@ async def create_app():
     return app
 
 if __name__ == "__main__":
-
     async def main():
         app = await create_app()
         runner = web.AppRunner(app)
