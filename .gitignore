@@ -2,3 +2,6 @@ __pycache__
 .venv
 *.env
 app.bat
+commit.md
+user_data
+

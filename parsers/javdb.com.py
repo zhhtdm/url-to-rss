@@ -2,6 +2,21 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 from urllib.parse import urlparse
+from camo_sign import create_signed_url
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+CAMO_KEY=bytes(os.getenv("CAMO_KEY", None).encode("utf-8"))
+CAMO_ENDPOINT=os.getenv("CAMO_ENDPOINT", None)
+
+def camo(url:str) -> str :
+    return url
+    if CAMO_ENDPOINT and CAMO_KEY:
+        return create_signed_url(CAMO_ENDPOINT,CAMO_KEY,url)
+    else :
+        return url
 
 def html_to_info(html, url):
     info = {}
@@ -99,7 +114,7 @@ def html_to_info(html, url):
         img_tag = item.find('img')
         if img_tag:
             # 创建一个新的img标签，只保留src属性
-            new_img_tag = html_block.new_tag('img', src=img_tag['src'])
+            new_img_tag = html_block.new_tag('img', src=camo(img_tag['src']))
             html_block.div.append(new_img_tag)
         html_block.div.append(date_tag)
         html_block_str = str(html_block)

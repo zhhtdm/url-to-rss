@@ -8,16 +8,21 @@ from lzhaiofetcher import AioFetcher
 from dotenv import load_dotenv
 import html
 from datetime import datetime
+from lzhbrowser import Browser
+import logging
+from lzhgetlogger import get_logger
 
 load_dotenv()
+
+logger = get_logger(logging.INFO)
 
 HOST = os.getenv("HOST", '127.0.0.1')
 APP_PATH = os.getenv("APP_PATH", "")
 PORT = int(os.getenv("PORT", 8000))
 FETCH_TOKEN = os.getenv("FETCH_TOKEN", "")
 FETCH_SERVER = os.getenv("FETCH_SERVER", "")
-AIOFETCHER_MAX_CONCURRENT = int(os.getenv("AIOFETCHER_MAX_CONCURRENT", 10))
-fetcher_semaphore = asyncio.Semaphore(AIOFETCHER_MAX_CONCURRENT)
+# AIOFETCHER_MAX_CONCURRENT = int(os.getenv("AIOFETCHER_MAX_CONCURRENT", 10))
+# fetcher_semaphore = asyncio.Semaphore(AIOFETCHER_MAX_CONCURRENT)
 
 def timestamp_to_RFC822(ts):
     return datetime.fromtimestamp(ts).strftime('%a, %d %b %Y %H:%M:%S +0000')
@@ -63,6 +68,7 @@ async def load_parse_function(parser_file):
         raise web.HTTPInternalServerError(text=f"Error loading parse function: {e}")
 
 async def handle_query_request(request):
+
     url = request.query.get('url')
     if not url:
         raise web.HTTPBadRequest(text="Missing 'url' query parameter")
@@ -78,14 +84,9 @@ async def handle_query_request(request):
     if not os.path.exists(parser_file):
         raise web.HTTPNotFound(text="parser file not found")
 
-    # fetch_url = url.replace('javdb.com','javdb457.com') if domain == 'javdb.com' else url
+    browser: Browser = request.app["browser"]
 
-    fetch_url = f"{FETCH_SERVER}/?url={quote(url, safe='')}&token={FETCH_TOKEN}"
-
-    async with fetcher_semaphore:
-        fetcher = AioFetcher()
-        html = await fetcher.fetch(fetch_url)
-        await fetcher.close()
+    html = await browser.fetch(url)
 
     if not html:
         raise web.HTTPBadRequest(text="Maybe the URL is wrong, please try again later")
@@ -98,8 +99,32 @@ async def handle_query_request(request):
     feed = info_to_feed(info)
     return web.Response(text=feed, content_type='application/xml')
 
-app = web.Application()
-app.router.add_get("/"+APP_PATH, handle_query_request)
+async def create_app():
+    logger.info("brower initing ...")
+    browser = await Browser.create(
+        headless=False,
+        logging_level=logging.INFO
+    )
+    logger.info("brower inited")
+    app = web.Application()
+    app["browser"] = browser
+    app.router.add_get("/" + APP_PATH, handle_query_request)
+    async def on_cleanup(app):
+        await app["browser"].close()
+    app.on_cleanup.append(on_cleanup)
+    return app
 
 if __name__ == "__main__":
-    web.run_app(app, host=HOST, port=PORT)
+
+    async def main():
+        app = await create_app()
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner=runner, host=HOST, port=PORT)
+        await site.start()
+        logger.info(f"Running on http://{HOST}:{PORT}")
+        while True:
+            await asyncio.sleep(3600)
+
+    asyncio.run(main())
+
