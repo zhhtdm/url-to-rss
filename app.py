@@ -23,8 +23,11 @@ PORT = int(os.getenv("PORT", 8000))
 B_PROXY_SERVER = os.getenv("B_PROXY_SERVER", "socks5://127.0.0.1:1080")
 B_MAX_PAGES:int = int(os.getenv("B_MAX_PAGES", 8))
 
-def timestamp_to_RFC822(ts):
-    return datetime.fromtimestamp(ts).strftime('%a, %d %b %Y %H:%M:%S +0000')
+def timestamp_to_RFC822(ts:float):
+    try :
+        return datetime.fromtimestamp(ts).strftime('%a, %d %b %Y %H:%M:%S +0000')
+    except:
+        return datetime.fromtimestamp(0.0).strftime('%a, %d %b %Y %H:%M:%S +0000')
 
 def info_to_feed(info):
     image = info.get('image',{})
@@ -34,7 +37,7 @@ def info_to_feed(info):
     <title>{html.escape(info.get('title',''))}</title>
     <link>{html.escape(info.get('link',''))}</link>
     <description>{html.escape(info.get('description',''))}</description>
-    <lastBuildDate>{html.escape(timestamp_to_RFC822(info.get('lastBuildDate','')))}</lastBuildDate>
+    <lastBuildDate>{html.escape(timestamp_to_RFC822(info.get('lastBuildDate',0.0)))}</lastBuildDate>
     <image>
         <ul>{html.escape(image.get('ul',''))}</ul>
         <title>{html.escape(image.get('title',''))}</title>
@@ -48,7 +51,7 @@ def info_to_feed(info):
         <title>{html.escape(value.get('title',''))}</title>
         <link>{html.escape(value.get('link',''))}</link>
         <description><![CDATA[{value.get('description_html','')}]]></description>
-        <pubDate>{html.escape(timestamp_to_RFC822(value.get('pubDate','')))}</pubDate>
+        <pubDate>{html.escape(timestamp_to_RFC822(value.get('pubDate',0.0)))}</pubDate>
         <guid isPermaLink="false">{html.escape(value.get('guid',value.get('link',str(uuid.uuid4()))))}</guid>
     </item>
 '''

@@ -82,7 +82,7 @@ def html_to_info(html, url):
 
     tags = soup.find_all('div', class_='item')
     if not tags:
-        info['lastBuildDate'] = datetime.now().strftime('%a, %d %b %Y %H:%M:%S +0000')
+        info['lastBuildDate'] = datetime.now().timestamp()
         return info
 
     date_obj_set = set()
