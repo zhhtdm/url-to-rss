@@ -2,9 +2,8 @@ import os
 import asyncio
 from aiohttp import web
 import importlib.util
-from urllib.parse import urlparse, quote
+from urllib.parse import urlparse
 import asyncio
-from lzhaiofetcher import AioFetcher
 from dotenv import load_dotenv
 import html
 from datetime import datetime
