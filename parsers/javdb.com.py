@@ -39,6 +39,8 @@ def html_to_info(html, url):
     # info['item']['']['link']
     # info['item']['']['description']
     # info['item']['']['pubDate']
+    # info['item']['']['guid']
+
 
     soup = BeautifulSoup(html, 'html.parser')
 
@@ -109,6 +111,7 @@ def html_to_info(html, url):
         info['item'][id]['link'] = root_url + href
         # info['item'][id]['description'] = ''
         info['item'][id]['pubDate'] = date_obj.timestamp()
+        info['item'][id]['guid'] = id
         date_obj_set.add(date_obj)
 
         html_block = BeautifulSoup('<div> </div>', 'html.parser')

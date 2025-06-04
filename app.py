@@ -11,6 +11,7 @@ from datetime import datetime
 from lzhbrowser import Browser
 import logging
 from lzhgetlogger import get_logger
+import uuid
 
 load_dotenv()
 
@@ -48,6 +49,7 @@ def info_to_feed(info):
         <link>{html.escape(value.get('link',''))}</link>
         <description><![CDATA[{value.get('description_html','')}]]></description>
         <pubDate>{html.escape(timestamp_to_RFC822(value.get('pubDate','')))}</pubDate>
+        <guid isPermaLink="false">{html.escape(value.get('guid',value.get('link',str(uuid.uuid4()))))}</guid>
     </item>
 '''
     feed += '''
