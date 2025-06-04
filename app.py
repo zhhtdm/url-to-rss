@@ -28,26 +28,28 @@ def timestamp_to_RFC822(ts):
     return datetime.fromtimestamp(ts).strftime('%a, %d %b %Y %H:%M:%S +0000')
 
 def info_to_feed(info):
+    image = info.get('image',{})
     feed = f'''<?xml version="1.0" encoding="UTF-8" ?>
 <rss version="2.0">
 <channel>
-    <title>{html.escape(info['title'])}</title>
-    <link>{html.escape(info['link'])}</link>
-    <description>{html.escape(info['description'])}</description>
-    <lastBuildDate>{html.escape(timestamp_to_RFC822(info['lastBuildDate']))}</lastBuildDate>
+    <title>{html.escape(info.get('title',''))}</title>
+    <link>{html.escape(info.get('link',''))}</link>
+    <description>{html.escape(info.get('description',''))}</description>
+    <lastBuildDate>{html.escape(timestamp_to_RFC822(info.get('lastBuildDate','')))}</lastBuildDate>
     <image>
-        <ul>{html.escape(info['image']['ul'])}</ul>
-        <title>{html.escape(info['image']['title'])}</title>
-        <link>{html.escape(info['image']['link'])}</link>
+        <ul>{html.escape(image.get('ul',''))}</ul>
+        <title>{html.escape(image.get('title',''))}</title>
+        <link>{html.escape(image.get('link',''))}</link>
     </image>
 '''
-    for value in info['item'].values():
+    values = info.get('item',{}).values()
+    for value in values:
         feed += f'''
     <item>
-        <title>{html.escape(value['title'])}</title>
-        <link>{html.escape(value['link'])}</link>
-        <description><![CDATA[{value['description_html']}]]></description>
-        <pubDate>{html.escape(timestamp_to_RFC822(value['pubDate']))}</pubDate>
+        <title>{html.escape(value.get('title',''))}</title>
+        <link>{html.escape(value.get('link',''))}</link>
+        <description><![CDATA[{value.get('description_html','')}]]></description>
+        <pubDate>{html.escape(timestamp_to_RFC822(value.get('pubDate','')))}</pubDate>
     </item>
 '''
     feed += '''
