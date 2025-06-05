@@ -2,7 +2,7 @@ import os
 import asyncio
 from aiohttp import web
 import importlib.util
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 import asyncio
 from dotenv import load_dotenv
 import html
@@ -21,6 +21,7 @@ APP_PATH = os.getenv("APP_PATH", "")
 PORT = int(os.getenv("PORT", 8000))
 B_PROXY_SERVER = os.getenv("B_PROXY_SERVER", "socks5://127.0.0.1:1080")
 B_MAX_PAGES:int = int(os.getenv("B_MAX_PAGES", 8))
+RSS_BASE_URL = os.getenv("RSS_BASE_URL", '')
 
 def timestamp_to_RFC822(ts:float):
     try :
@@ -31,14 +32,15 @@ def timestamp_to_RFC822(ts:float):
 def info_to_feed(info):
     image = info.get('image',{})
     feed = f'''<?xml version="1.0" encoding="UTF-8" ?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
+    <atom:link href="{RSS_BASE_URL}{quote(info.get('link',''), safe='')}" rel="self" type="application/rss+xml" />
     <title>{html.escape(info.get('title',''))}</title>
     <link>{html.escape(info.get('link',''))}</link>
     <description>{html.escape(info.get('description',''))}</description>
     <lastBuildDate>{html.escape(timestamp_to_RFC822(info.get('lastBuildDate',0.0)))}</lastBuildDate>
     <image>
-        <ul>{html.escape(image.get('ul',''))}</ul>
+        <url>{html.escape(image.get('ul',''))}</url>
         <title>{html.escape(image.get('title',''))}</title>
         <link>{html.escape(image.get('link',''))}</link>
     </image>
@@ -72,8 +74,8 @@ async def load_parse_function(parser_file):
         raise web.HTTPInternalServerError(text=f"Error loading parse function: {e}")
 
 async def handle_query_request(request):
-
     url = request.query.get('url')
+
     if not url:
         raise web.HTTPBadRequest(text="Missing 'url' query parameter")
 

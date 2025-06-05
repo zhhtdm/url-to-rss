@@ -104,7 +104,7 @@ def html_to_info(html, url):
     return info
 
 async def parse(url:str, browser:Browser):
-    html = await browser.fetch(url, wait_until='networkidle',abort={"image", "media"})
+    html = await browser.fetch(url)
     if not html:
         return None
     return html_to_info(html, url)
