@@ -10,21 +10,21 @@ def parse_time_string(s: str, now: datetime = None) -> datetime:
     try:
         if s.endswith("分钟前"):
             minutes = int(s[:-3])
-            return now - timedelta(minutes=minutes) - timedelta(hours=9)
+            return now - timedelta(minutes=minutes)
         elif s.startswith("今天"):
             time_part = s[2:].strip()
-            return datetime.strptime(now.strftime("%Y-%m-%d") + " " + time_part, "%Y-%m-%d %H:%M") - timedelta(hours=9)
+            return datetime.strptime(now.strftime("%Y-%m-%d") + " " + time_part, "%Y-%m-%d %H:%M")
         elif s.startswith("昨天"):
             time_part = s[2:].strip()
             date = now - timedelta(days=1)
-            return datetime.strptime(date.strftime("%Y-%m-%d") + " " + time_part, "%Y-%m-%d %H:%M") - timedelta(hours=9)
+            return datetime.strptime(date.strftime("%Y-%m-%d") + " " + time_part, "%Y-%m-%d %H:%M")
         else:
             # 处理格式如 "06/02/ 22:13"
             date_part, time_part = s.split()
             date_part = date_part.strip('/')  # 去掉末尾的 '/'
             month, day = map(int, date_part.split('/'))
             hour, minute = map(int, time_part.split(':'))
-            return datetime(now.year, month, day, hour, minute) - timedelta(hours=9)
+            return datetime(now.year, month, day, hour, minute)
     except Exception:
         return datetime(1970, 1, 1)
 

@@ -25,9 +25,9 @@ RSS_BASE_URL = os.getenv("RSS_BASE_URL", '')
 
 def timestamp_to_RFC822(ts:float):
     try :
-        return datetime.fromtimestamp(ts).strftime('%a, %d %b %Y %H:%M:%S +0000')
+        return datetime.fromtimestamp(ts).strftime('%a, %d %b %Y %H:%M:%S +0900')
     except:
-        return datetime.fromtimestamp(0.0).strftime('%a, %d %b %Y %H:%M:%S +0000')
+        return datetime.fromtimestamp(0.0).strftime('%a, %d %b %Y %H:%M:%S +0900')
 
 def info_to_feed(info):
     image = info.get('image',{})

@@ -62,7 +62,7 @@ def html_to_info(html, url):
         text = text.replace('排行 - ',' - ')
         text2 = text
     info['title'] = text
-    info['description'] = text2
+    info['description'] = text2.strip(' | ')
 
     image_url = 'https://c0.jdbstatic.com/images/logo_120x120.png'
     span = soup.find('span', class_='avatar')
@@ -131,7 +131,7 @@ def html_to_info(html, url):
     return info
 
 async def parse(url:str, browser:Browser):
-    html = await browser.fetch(url)
+    html = await browser.fetch(url, wait_until='domcontentloaded')
     if not html:
         return None
     return html_to_info(html, url)
