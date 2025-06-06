@@ -82,8 +82,7 @@ def html_to_info(html, url):
 
     tags = soup.find_all('div', class_='item')
     if not tags:
-        info['lastBuildDate'] = datetime.now().timestamp()
-        return info
+        return None
 
     date_obj_set = set()
     for item in tags:
@@ -125,6 +124,8 @@ def html_to_info(html, url):
 
         info['item'][id]['description_html'] = html_block_str
 
+    if not info.get('item'):
+        return None
     latest_date = max(date_obj_set) if date_obj_set else datetime.now()
     info['lastBuildDate'] = latest_date.timestamp()
 

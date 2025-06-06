@@ -22,6 +22,7 @@ PORT = int(os.getenv("PORT", 8000))
 B_PROXY_SERVER = os.getenv("B_PROXY_SERVER", "socks5://127.0.0.1:1080")
 B_MAX_PAGES:int = int(os.getenv("B_MAX_PAGES", 8))
 RSS_BASE_URL = os.getenv("RSS_BASE_URL", '')
+RETRIES = int(os.getenv("RETRIES", 2))
 
 def timestamp_to_RFC822(ts:float):
     try :
@@ -71,12 +72,14 @@ async def load_parse_function(parser_file):
         spec.loader.exec_module(parse_module)
         return getattr(parse_module, 'parse')
     except Exception as e:
+        logger.error(f"Error loading parse function: {e}")
         raise web.HTTPInternalServerError(text=f"Error loading parse function: {e}")
 
 async def handle_query_request(request):
     url = request.query.get('url')
 
     if not url:
+        logger.warning(f"Missing 'url' query parameter")
         raise web.HTTPBadRequest(text="Missing 'url' query parameter")
 
     parsed_url = urlparse(url)
@@ -84,22 +87,31 @@ async def handle_query_request(request):
 
     domain = parsed_url.netloc
     if not domain:
+        logger.warning(f"Invalid URL {url}")
         raise web.HTTPBadRequest(text="Invalid URL")
 
     parser_file = os.path.join('parsers', f'{domain}.py')
     if not os.path.exists(parser_file):
+        logger.error(f"parser file not found {url}")
         raise web.HTTPNotFound(text="parser file not found")
 
     browser: Browser = request.app["browser"]
 
     parse_function = await load_parse_function(parser_file)
-    if asyncio.iscoroutinefunction(parse_function):
-        info = await parse_function(url, browser)
-    else:
-        info = parse_function(url, browser)
-    if not info:
-        raise web.HTTPBadRequest(text="Maybe the URL is wrong, please try again later")
+    for attempt in range(1, RETRIES + 2):
+        if asyncio.iscoroutinefunction(parse_function):
+            info = await parse_function(url, browser)
+        else:
+            info = parse_function(url, browser)
+        if info:
+            break
+        elif attempt >= RETRIES + 1:
+            logger.warning(f"Maybe the URL is wrong {url}")
+            raise web.HTTPBadRequest(text="Maybe the URL is wrong, please try again later")
+        logger.warning(f"No info on attempt {attempt} for {url}")
+        await asyncio.sleep(1)
     feed = info_to_feed(info)
+    logger.info(f"Got {len(info.get('item'))} items - {url}")
     return web.Response(text=feed, content_type='application/xml')
 
 async def create_app():
