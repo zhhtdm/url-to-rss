@@ -2,6 +2,19 @@ from lzhbrowser import Browser
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from datetime import datetime, timedelta
+from lzhfreshrssapi import pg_get_guids_by_site_url
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+logger = None
+
+JANDANRSS_DB_HOST = os.getenv('JANDANRSS_DB_HOST', None)
+JANDANRSS_DB_PORT = os.getenv('JANDANRSS_DB_PORT', 5432)
+JANDANRSS_DB_USER = os.getenv('JANDANRSS_DB_USER', None)
+JANDANRSS_DB_PW = os.getenv('JANDANRSS_DB_PW', None)
+JANDANRSS_DB_BASE = os.getenv('JANDANRSS_DB_BASE', None)
+JANDANRSS_DB_PREFIX = os.getenv('JANDANRSS_DB_PREFIX', None)
 
 def parse_time_string(s: str, now: datetime = None) -> datetime:
     if not now:
@@ -65,7 +78,7 @@ def html_to_info(html, url):
 
     tags = soup.find_all('div',class_="comment-row p-2")
     if not tags:
-        return None
+        raise RuntimeError("html中没有主tag")
 
     date_obj_set = set()
     for item in tags:
@@ -98,14 +111,41 @@ def html_to_info(html, url):
         info['item'][id]['description_html'] = str(html_block)
 
     if not info.get('item'):
-        return None
+        raise RuntimeError("主tag中没有item")
     latest_date = max(date_obj_set) if date_obj_set else datetime.now()
     info['lastBuildDate'] = latest_date.timestamp()
 
     return info
 
-async def parse(url:str, browser:Browser):
+async def delete_existing_item(info, url):
+    if not info or not info.get('item', {}):
+        return info
+    if JANDANRSS_DB_HOST and JANDANRSS_DB_PORT and JANDANRSS_DB_USER and JANDANRSS_DB_PW and JANDANRSS_DB_BASE and JANDANRSS_DB_PREFIX:
+        try:
+            db_config = {
+                'host': JANDANRSS_DB_HOST,
+                'port': JANDANRSS_DB_PORT,
+                'user': JANDANRSS_DB_USER,
+                'password': JANDANRSS_DB_PW,
+                'base': JANDANRSS_DB_BASE,
+                'prefix': JANDANRSS_DB_PREFIX,
+            }
+            ids_existing:set = await pg_get_guids_by_site_url(site_url=url, db_config=db_config)
+        except Exception as e:
+            raise RuntimeError(f"数据库错误 : {e}")
+
+        ids = set(info['item'].keys())
+        ids.intersection_update(ids_existing)
+        for id in ids:
+            info['item'].pop(id, None)
+    return info
+
+async def parse(url:str, browser:Browser, _logger):
+    global logger
+    logger = _logger
     html = await browser.fetch(url)
     if not html:
-        return None
-    return html_to_info(html, url)
+        raise RuntimeError("url没有下载到html")
+    info = html_to_info(html, url)
+    info = await delete_existing_item(info, url)
+    return info

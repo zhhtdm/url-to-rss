@@ -98,18 +98,23 @@ async def handle_query_request(request):
     browser: Browser = request.app["browser"]
 
     parse_function = await load_parse_function(parser_file)
+    error = ''
     for attempt in range(1, RETRIES + 2):
-        if asyncio.iscoroutinefunction(parse_function):
-            info = await parse_function(url, browser)
-        else:
-            info = parse_function(url, browser)
-        if info:
+        try:
+            if asyncio.iscoroutinefunction(parse_function):
+                info = await parse_function(url, browser, logger)
+            else:
+                info = parse_function(url, browser, logger)
+            if not info:
+                raise RuntimeError(f"No info")
             break
-        elif attempt >= RETRIES + 1:
-            logger.warning(f"Maybe the URL is wrong {url}")
-            raise web.HTTPBadRequest(text="Maybe the URL is wrong, please try again later")
-        logger.warning(f"No info on attempt {attempt} for {url}")
-        await asyncio.sleep(1)
+        except Exception as e:
+            error = error + f"Error on attempt {attempt} for {url} : {e} \n"
+            if attempt >= RETRIES + 1:
+                logger.warning(f"Error : \n{error}")
+                raise web.HTTPBadRequest(text=f"Error : \n{error}")
+            await asyncio.sleep(1)
+
     feed = info_to_feed(info)
     logger.info(f"Got {len(info.get('item'))} items - {url}")
     return web.Response(text=feed, content_type='application/xml')

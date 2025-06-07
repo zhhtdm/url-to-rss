@@ -8,6 +8,7 @@ import os
 from lzhbrowser import Browser
 
 load_dotenv()
+logger = None
 
 CAMO_KEY=bytes(os.getenv("CAMO_KEY", None).encode("utf-8"))
 CAMO_ENDPOINT=os.getenv("CAMO_ENDPOINT", None)
@@ -131,7 +132,9 @@ def html_to_info(html, url):
 
     return info
 
-async def parse(url:str, browser:Browser):
+async def parse(url:str, browser:Browser, _logger):
+    global logger
+    logger = _logger
     html = await browser.fetch(url, wait_until='domcontentloaded')
     if not html:
         return None
