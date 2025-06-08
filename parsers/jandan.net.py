@@ -185,13 +185,13 @@ def html_to_description(html, comment_count:int, link):
         oo = int(row.find("span", class_="oo_number").text.strip())
         xx = int(row.find("span", class_="xx_number").text.strip())
         if oo >= JANDANRSS_TUOCAO_MIN_OO and oo > xx:
-            filtered_rows.append((oo, row))
+            filtered_rows.append((oo, xx, row))
 
     if not filtered_rows:
         return html_block, title
     filtered_rows.sort(key=lambda x: x[0], reverse=True)
     table = BeautifulSoup(f'<div style="max-height:{JANDANRSS_TUCAO_MAX_HEIGHT};overflow-y:auto;border:1px solid #888;display:flex;flex-direction:column;justify-content:center;align-items:center;"><table></table></div>', 'html.parser')
-    for oo, row in filtered_rows:
+    for oo, xx, row in filtered_rows:
         floor = row.find('span', class_='floor').text.strip().strip('#').strip('楼')
         content = row.find('div', class_='comment-content').text.strip()
         if len(content) >= 3:
