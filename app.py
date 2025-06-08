@@ -83,7 +83,7 @@ async def handle_query_request(request):
         raise web.HTTPBadRequest(text="Missing 'url' query parameter")
 
     parsed_url = urlparse(url)
-    print(parsed_url)
+    logger.info(parsed_url)
 
     domain = parsed_url.netloc
     if not domain:
@@ -110,7 +110,7 @@ async def handle_query_request(request):
             break
         except Exception as e:
             error = error + f"Error on attempt {attempt} for {url} : {e} \n"
-            if attempt >= RETRIES + 1:
+            if attempt > RETRIES:
                 logger.warning(f"Error : \n{error}")
                 raise web.HTTPBadRequest(text=f"Error : \n{error}")
             await asyncio.sleep(1)

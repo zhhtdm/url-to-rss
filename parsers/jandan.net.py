@@ -1,5 +1,5 @@
 from lzhbrowser import Browser
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from urllib.parse import urlparse, quote
 from datetime import datetime, timedelta
 from lzhfreshrssapi import pg_get_guids_by_site_url
@@ -85,9 +85,9 @@ def html_to_info(html, url):
 
     tags = soup.find_all('div', class_="comment-row p-2")
     if not tags:
-        info['lastBuildDate'] = datetime.now().timestamp()
-        return info
-        # raise RuntimeError("html中没有主tag")
+        # info['lastBuildDate'] = datetime.now().timestamp()
+        # return info
+        raise RuntimeError("html中没有主tag")
 
     date_obj_set = set()
     for item in tags:
@@ -95,7 +95,10 @@ def html_to_info(html, url):
         tag1 = item.find('span', class_='create-time')
         tag2 = item.find('span', class_='comment-count')
         tag3 = item.find('div', class_='comment-func')
-        if not tag or not tag.has_attr('href') or not tag1 or not tag2 or not tag2.text.strip().isdigit() or not tag3:
+        oo = int(item.find("span", class_="oo_number").text.strip())
+        xx = int(item.find("span", class_="xx_number").text.strip())
+
+        if not tag or not tag.has_attr('href') or not tag1 or not tag2 or not tag2.text.strip().isdigit() or not tag3 or xx >= oo:
             continue
 
         id = tag.text.strip()
@@ -110,6 +113,7 @@ def html_to_info(html, url):
             date_obj = parse_time_string(date)
         except:
             continue
+
         date_obj_set.add(date_obj)
 
         info['item'][id]={}
@@ -125,9 +129,9 @@ def html_to_info(html, url):
         info['item'][id]['description_html'] = str(html_block)
 
     if not info.get('item'):
-        info['lastBuildDate'] = datetime.now().timestamp()
-        return info
-        # raise RuntimeError("主tag中没有item")
+        # info['lastBuildDate'] = datetime.now().timestamp()
+        # return info
+        raise RuntimeError("主tag中没有item")
     latest_date = max(date_obj_set) if date_obj_set else datetime.now()
     info['lastBuildDate'] = latest_date.timestamp()
 
@@ -155,7 +159,7 @@ async def delete_existing_item(info, url):
         for id in ids:
             info['item'].pop(id, None)
 
-async def html_to_description_date(html, comment_count:int, link):
+def html_to_description(html, comment_count:int, link):
     soup = BeautifulSoup(html, 'html.parser')
     tag = soup.find('div', class_='comment-row')
     if comment_count > 0 and not tag:
@@ -163,17 +167,14 @@ async def html_to_description_date(html, comment_count:int, link):
 
     tag = soup.find('div', class_='post-content')
     tag['style'] = 'display:flex;flex-direction:column;justify-content:center;align-items:center;'
+    title = ''
+    for elem in list(tag.contents):
+        if isinstance(elem, NavigableString):
+            title = title + ' ' + elem.extract().strip()
+    title = title.replace('\n', ' ').strip()
+
     html_block = BeautifulSoup(f'<div style="max-height:{JANDANRSS_ITEM_MAX_HEIGHT};overflow-y:auto;"></div>', 'html.parser')
     html_block.div.append(tag)
-
-    date = None
-    text = soup.select_one('.post-meta').text
-    match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', text)
-    if match:
-        time_str = match.group()
-        dt = datetime.strptime(time_str, '%Y-%m-%d %H:%M')
-        date_obj = dt + timedelta(hours=9) if dt else None
-        date = date_obj.timestamp() if date_obj else None
 
     tag = soup.find('div', class_='tucao-container')
     for sub in tag.find_all('div', class_='tucao-hot'):
@@ -181,19 +182,18 @@ async def html_to_description_date(html, comment_count:int, link):
     comment_rows = tag.find_all('div', class_='comment-row')
     filtered_rows = []
     for row in comment_rows:
-        oo_span = row.find("span", class_="oo_number")
-        if oo_span and oo_span.text.strip().isdigit():
-            oo = int(oo_span.text)
-            if oo >= JANDANRSS_TUOCAO_MIN_OO:
-                filtered_rows.append((oo, row))
+        oo = int(row.find("span", class_="oo_number").text.strip())
+        xx = int(row.find("span", class_="xx_number").text.strip())
+        if oo >= JANDANRSS_TUOCAO_MIN_OO and oo > xx:
+            filtered_rows.append((oo, row))
+
     if not filtered_rows:
-        return html_block, date
+        return html_block, title
     filtered_rows.sort(key=lambda x: x[0], reverse=True)
     table = BeautifulSoup(f'<div style="max-height:{JANDANRSS_TUCAO_MAX_HEIGHT};overflow-y:auto;border:1px solid #888;display:flex;flex-direction:column;justify-content:center;align-items:center;"><table></table></div>', 'html.parser')
     for oo, row in filtered_rows:
         floor = row.find('span', class_='floor').text.strip().strip('#').strip('楼')
         content = row.find('div', class_='comment-content').text.strip()
-        xx = row.find("span", class_="xx_number").text.strip()
         if len(content) >= 3:
             href = f'{link}#:~:text={quote(content[:1],safe='')}-,{quote(content[1:-1],safe='')},-{quote(content[-1:],safe='')}'
         else:
@@ -204,7 +204,19 @@ async def html_to_description_date(html, comment_count:int, link):
 
     html_block.div.append(table)
 
-    return html_block, date
+    return html_block, title
+
+def html_to_date(html):
+    soup = BeautifulSoup(html, 'html.parser')
+    date = None
+    text = soup.select_one('.post-meta').text
+    match = re.search(r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}', text)
+    if match:
+        time_str = match.group()
+        dt = datetime.strptime(time_str, '%Y-%m-%d %H:%M')
+        date_obj = dt + timedelta(hours=9) if dt else None
+        date = date_obj.timestamp() if date_obj else None
+    return date
 
 async def update_item(items, id, browser):
     error = ''
@@ -215,14 +227,17 @@ async def update_item(items, id, browser):
             html = await browser.fetch(link)
             if not html:
                 raise RuntimeError("No html")
-            html_block, date = await html_to_description_date(html, comment_count, link)
+            html_block, title = html_to_description(html, comment_count, link)
+            date = html_to_date(html)
             items[id]['description_html'] = str(html_block)
             if date:
                 items[id]['pubDate'] = date
+            if title:
+                items[id]['title'] = items[id]['title'] + ' ' + title
             break
         except Exception as e:
             error = error + f"Error on attempt {attempt} for {link} : {e} \n"
-            if attempt >= RETRIES + 1:
+            if attempt > RETRIES:
                 logger.error(f"Error : \n{error}")
                 items[id]['description_html'] = error
                 return
