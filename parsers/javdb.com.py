@@ -77,7 +77,7 @@ def html_to_info(html, url):
     elif link and link.has_attr('href'):
         href = link['href']
         image_url = root_url + href
-    info['image']['ul'] = image_url
+    info['image']['url'] = image_url
     info['image']['title'] = info['title']
     info['image']['link'] = info['link']
 

@@ -20,15 +20,15 @@ HOST = os.getenv("HOST", '127.0.0.1')
 APP_PATH = os.getenv("APP_PATH", "")
 PORT = int(os.getenv("PORT", 8000))
 B_PROXY_SERVER = os.getenv("B_PROXY_SERVER", "socks5://127.0.0.1:1080")
-B_MAX_PAGES:int = int(os.getenv("B_MAX_PAGES", 8))
+B_MAX_PAGES:int = int(os.getenv("B_MAX_PAGES", 4))
 RSS_BASE_URL = os.getenv("RSS_BASE_URL", '')
 RETRIES = int(os.getenv("RETRIES", 2))
 
-def timestamp_to_RFC822(ts:float):
+def timestamp_to_RFC822(ts:float, tz:str = '+0900'):
     try :
-        return datetime.fromtimestamp(ts).strftime('%a, %d %b %Y %H:%M:%S +0900')
+        return datetime.fromtimestamp(ts).strftime(f'%a, %d %b %Y %H:%M:%S {tz}')
     except:
-        return datetime.fromtimestamp(0.0).strftime('%a, %d %b %Y %H:%M:%S +0900')
+        return datetime.fromtimestamp(0.0).strftime(f'%a, %d %b %Y %H:%M:%S {tz}')
 
 def info_to_feed(info):
     image = info.get('image',{})
@@ -41,7 +41,7 @@ def info_to_feed(info):
     <description>{html.escape(info.get('description',''))}</description>
     <lastBuildDate>{html.escape(timestamp_to_RFC822(info.get('lastBuildDate',0.0)))}</lastBuildDate>
     <image>
-        <url>{html.escape(image.get('ul',''))}</url>
+        <url>{html.escape(image.get('url',''))}</url>
         <title>{html.escape(image.get('title',''))}</title>
         <link>{html.escape(image.get('link',''))}</link>
     </image>
