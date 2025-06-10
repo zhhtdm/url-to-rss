@@ -218,13 +218,13 @@ def html_to_date(html):
         date = date_obj.timestamp() if date_obj else None
     return date
 
-async def update_item(items, id, browser):
+async def update_item(items, id, browser:Browser):
     error = ''
     link = items[id]['link']
     comment_count = items[id]['comment_count']
     for attempt in range(1, RETRIES + 2):
         try :
-            html = await browser.fetch(link)
+            html = await browser.fetch(link, selector="div.comment-row")
             if not html:
                 raise RuntimeError("No html")
             html_block, title = html_to_description(html, comment_count, link)
@@ -246,7 +246,7 @@ async def update_item(items, id, browser):
 async def parse(url:str, browser:Browser, _logger):
     global logger
     logger = _logger
-    html = await browser.fetch(url)
+    html = await browser.fetch(url, selector="div.comment-row")
     if not html:
         raise RuntimeError("url没有下载到html")
     info = html_to_info(html, url)
