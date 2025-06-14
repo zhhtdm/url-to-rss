@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import os
 import re
 import asyncio
+from aiohttp import ClientSession, ClientTimeout
 
 load_dotenv()
 logger = None
@@ -22,6 +23,8 @@ RETRIES = int(os.getenv("RETRIES", 2))
 JANDANRSS_ITEM_MAX_HEIGHT = os.getenv('JANDANRSS_ITEM_MAX_HEIGHT', '800px')
 JANDANRSS_TUCAO_MAX_HEIGHT = os.getenv('JANDANRSS_TUCAO_MAX_HEIGHT', '150px')
 JANDANRSS_TUOCAO_MIN_OO = int(os.getenv("JANDANRSS_TUOCAO_MIN_OO", 5))
+FILE_CACHE_BASE_URL=os.getenv('FILE_CACHE_BASE_URL', None)
+FILE_CACHE_TOKEN=os.getenv('FILE_CACHE_TOKEN', None)
 
 def parse_time_string(s: str, now: datetime = None) -> datetime:
     if not now:
@@ -85,9 +88,9 @@ def html_to_info(html, url):
 
     tags = soup.find_all('div', class_="comment-row p-2")
     if not tags:
-        # info['lastBuildDate'] = datetime.now().timestamp()
-        # return info
-        raise RuntimeError("html中没有主tag")
+        info['lastBuildDate'] = datetime.now().timestamp()
+        return info
+        # raise RuntimeError("html中没有主tag")
 
     date_obj_set = set()
     for item in tags:
@@ -129,9 +132,9 @@ def html_to_info(html, url):
         info['item'][id]['description_html'] = str(html_block)
 
     if not info.get('item'):
-        # info['lastBuildDate'] = datetime.now().timestamp()
-        # return info
-        raise RuntimeError("主tag中没有item")
+        info['lastBuildDate'] = datetime.now().timestamp()
+        return info
+        # raise RuntimeError("主tag中没有item")
     latest_date = max(date_obj_set) if date_obj_set else datetime.now()
     info['lastBuildDate'] = latest_date.timestamp()
 
@@ -159,7 +162,7 @@ async def delete_existing_item(info, url):
         for id in ids:
             info['item'].pop(id, None)
 
-def html_to_description(html, comment_count:int, link):
+async def html_to_description(html, comment_count:int, link):
     soup = BeautifulSoup(html, 'html.parser')
     tag = soup.find('div', class_='comment-row')
     if comment_count > 0 and not tag:
@@ -172,6 +175,17 @@ def html_to_description(html, comment_count:int, link):
         if isinstance(elem, NavigableString):
             title = title + ' ' + elem.extract().strip()
     title = title.replace('\n', ' ').strip()
+
+    if FILE_CACHE_BASE_URL:
+        for sub in tag.find_all(src=True):
+            url = quote(sub['src'], safe='')
+            src = f'{FILE_CACHE_BASE_URL}{url}'
+            sub['src'] = src
+            src = f'{src}&token={FILE_CACHE_TOKEN}'
+            timeout = ClientTimeout(total=10)
+            async with ClientSession(timeout=timeout) as session:
+                    async with session.get(src) as resp:
+                        resp.raise_for_status()
 
     html_block = BeautifulSoup(f'<div style="max-height:{JANDANRSS_ITEM_MAX_HEIGHT};overflow-y:auto;"></div>', 'html.parser')
     html_block.div.append(tag)
@@ -227,7 +241,7 @@ async def update_item(items, id, browser:Browser):
             html = await browser.fetch(link, selector="div.comment-row")
             if not html:
                 raise RuntimeError("No html")
-            html_block, title = html_to_description(html, comment_count, link)
+            html_block, title = await html_to_description(html, comment_count, link)
             date = html_to_date(html)
             items[id]['description_html'] = str(html_block)
             if date:
@@ -246,7 +260,10 @@ async def update_item(items, id, browser:Browser):
 async def parse(url:str, browser:Browser, _logger):
     global logger
     logger = _logger
-    html = await browser.fetch(url, selector="div.comment-row")
+    if url.endswith('#tab=4hr'):
+        html = await browser.fetch(url)
+    else:
+        html = await browser.fetch(url, selector="div.comment-row")
     if not html:
         raise RuntimeError("url没有下载到html")
     info = html_to_info(html, url)
