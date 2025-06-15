@@ -11,6 +11,7 @@ from aiohttp import ClientSession, ClientTimeout
 
 load_dotenv()
 logger = None
+browser: Browser = None
 
 JANDANRSS_DB_HOST = os.getenv('JANDANRSS_DB_HOST', None)
 JANDANRSS_DB_PORT = os.getenv('JANDANRSS_DB_PORT', 5432)
@@ -232,7 +233,7 @@ def html_to_date(html):
         date = date_obj.timestamp() if date_obj else None
     return date
 
-async def update_item(items, id, browser:Browser):
+async def update_item(items, id):
     error = ''
     link = items[id]['link']
     comment_count = items[id]['comment_count']
@@ -257,9 +258,14 @@ async def update_item(items, id, browser:Browser):
                 return
             await asyncio.sleep(1)
 
-async def parse(url:str, browser:Browser, _logger):
+async def parse(request):
     global logger
-    logger = _logger
+    global browser
+    browser = request.app["browser"]
+    logger = request.app["logger"]
+
+    url = request.query.get('url')
+
     if url.endswith('#tab=4hr'):
         html = await browser.fetch(url)
     else:
@@ -271,6 +277,6 @@ async def parse(url:str, browser:Browser, _logger):
     items = info.get('item', {})
     if not JANDANRSS_FETCH_FULL_PAGE or not items:
         return info
-    await asyncio.gather(*[update_item(items, id, browser) for id in items.keys()])
+    await asyncio.gather(*[update_item(items, id) for id in items.keys()])
 
     return info

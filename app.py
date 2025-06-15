@@ -11,6 +11,8 @@ from lzhbrowser import Browser
 import logging
 from lzhgetlogger import get_logger
 import uuid
+import base64
+import random
 
 load_dotenv()
 
@@ -20,9 +22,12 @@ HOST = os.getenv("HOST", '127.0.0.1')
 APP_PATH = os.getenv("APP_PATH", "")
 PORT = int(os.getenv("PORT", 8000))
 B_PROXY_SERVER = os.getenv("B_PROXY_SERVER", "socks5://127.0.0.1:1080")
-B_MAX_PAGES:int = int(os.getenv("B_MAX_PAGES", 4))
+B_MAX_PAGES = int(os.getenv("B_MAX_PAGES", 4))
 RSS_BASE_URL = os.getenv("RSS_BASE_URL", '')
 RETRIES = int(os.getenv("RETRIES", 2))
+USERNAME = os.getenv("USERNAME", None)
+PASSWORD = os.getenv("PASSWORD", None)
+
 
 def timestamp_to_RFC822(ts:float, tz:str = '+0900'):
     try :
@@ -65,7 +70,6 @@ def info_to_feed(info):
 
 # 动态导入异步解析函数
 async def load_parse_function(parser_file):
-    # parse_module_path = os.path.join(domain_folder, 'parse.py')
     try:
         spec = importlib.util.spec_from_file_location("parse_module", parser_file)
         parse_module = importlib.util.module_from_spec(spec)
@@ -102,9 +106,9 @@ async def handle_query_request(request):
     for attempt in range(1, RETRIES + 2):
         try:
             if asyncio.iscoroutinefunction(parse_function):
-                info = await parse_function(url, browser, logger)
+                info = await parse_function(request)
             else:
-                info = parse_function(url, browser, logger)
+                info = parse_function(request)
             if not info:
                 raise RuntimeError(f"No info")
             break
@@ -119,6 +123,31 @@ async def handle_query_request(request):
     logger.info(f"Got {len(info.get('item'))} items - {url}")
     return web.Response(text=feed, content_type='application/xml')
 
+
+@web.middleware
+async def basic_auth_middleware(request, handler):
+    if request.path.startswith(f'/{APP_PATH}'):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Basic '):
+            return web.HTTPUnauthorized(
+                headers={'WWW-Authenticate': 'Basic realm="Restricted"'},
+                text="Unauthorized"
+            )
+        try:
+            encoded = auth_header.split(" ")[1]
+            decoded = base64.b64decode(encoded).decode('utf-8')
+            username, password = decoded.split(":", 1)
+            if username != USERNAME or password != PASSWORD:
+                await asyncio.sleep(random.uniform(0.5, 2))
+                raise ValueError("Invalid credentials")
+        except Exception as e:
+            return web.HTTPUnauthorized(
+                headers={'WWW-Authenticate': 'Basic realm="Restricted"'},
+                text="Unauthorized"
+            )
+
+    return await handler(request)
+
 async def create_app():
     logger.info("brower initing ...")
     browser = await Browser.create(
@@ -128,12 +157,19 @@ async def create_app():
         logging_level=logging.INFO
     )
     logger.info("brower inited")
-    app = web.Application()
+
+    if USERNAME:
+        app = web.Application(middlewares=[basic_auth_middleware])
+    else :
+        app = web.Application()
     app["browser"] = browser
+    app["logger"] = logger
     app.router.add_get("/" + APP_PATH, handle_query_request)
+
     async def on_cleanup(app):
         await app["browser"].close()
     app.on_cleanup.append(on_cleanup)
+
     return app
 
 if __name__ == "__main__":
