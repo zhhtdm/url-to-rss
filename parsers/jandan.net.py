@@ -163,11 +163,8 @@ async def delete_existing_item(info, url):
         for id in ids:
             info['item'].pop(id, None)
 
-async def html_to_description(html, comment_count:int, link):
+async def html_to_description(html, link):
     soup = BeautifulSoup(html, 'html.parser')
-    tag = soup.find('div', class_='comment-row')
-    if comment_count > 0 and not tag:
-        raise RuntimeError('No comment')
 
     tag = soup.find('div', class_='post-content')
     tag['style'] = 'display:flex;flex-direction:column;justify-content:center;align-items:center;'
@@ -239,10 +236,13 @@ async def update_item(items, id):
     comment_count = items[id]['comment_count']
     for attempt in range(1, RETRIES + 2):
         try :
-            html = await browser.fetch(link, selector="div.comment-row")
+            if comment_count == 0:
+                html = await browser.fetch(link, selector="div.post-content")
+            else:
+                html = await browser.fetch(link, selector="div.comment-row")
             if not html:
                 raise RuntimeError("No html")
-            html_block, title = await html_to_description(html, comment_count, link)
+            html_block, title = await html_to_description(html, link)
             date = html_to_date(html)
             items[id]['description_html'] = str(html_block)
             if date:
