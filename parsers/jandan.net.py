@@ -19,7 +19,7 @@ JANDANRSS_DB_USER = os.getenv('JANDANRSS_DB_USER', None)
 JANDANRSS_DB_PW = os.getenv('JANDANRSS_DB_PW', None)
 JANDANRSS_DB_BASE = os.getenv('JANDANRSS_DB_BASE', None)
 JANDANRSS_DB_PREFIX = os.getenv('JANDANRSS_DB_PREFIX', None)
-JANDANRSS_FETCH_FULL_PAGE = bool(os.getenv('JANDANRSS_FETCH_FULL_PAGE', True))
+JANDANRSS_FETCH_FULL_PAGE: bool = os.getenv('JANDANRSS_FETCH_FULL_PAGE', 'False') == 'True'
 RETRIES = int(os.getenv("RETRIES", 2))
 JANDANRSS_ITEM_MAX_HEIGHT = os.getenv('JANDANRSS_ITEM_MAX_HEIGHT', '800px')
 JANDANRSS_TUCAO_MAX_HEIGHT = os.getenv('JANDANRSS_TUCAO_MAX_HEIGHT', '150px')
@@ -231,32 +231,24 @@ def html_to_date(html):
     return date
 
 async def update_item(items, id):
-    error = ''
     link = items[id]['link']
     comment_count = items[id]['comment_count']
-    for attempt in range(1, RETRIES + 2):
-        try :
-            if comment_count == 0:
-                html = await browser.fetch(link, selector="div.post-content")
-            else:
-                html = await browser.fetch(link, selector="div.comment-row")
-            if not html:
-                raise RuntimeError("No html")
-            html_block, title = await html_to_description(html, link)
-            date = html_to_date(html)
-            items[id]['description_html'] = str(html_block)
-            if date:
-                items[id]['pubDate'] = date
-            if title:
-                items[id]['title'] = items[id]['title'] + ' ' + title
-            break
-        except Exception as e:
-            error = error + f"Error on attempt {attempt} for {link} : {e} \n"
-            if attempt > RETRIES:
-                logger.error(f"Error : \n{error}")
-                items[id]['description_html'] = error
-                return
-            await asyncio.sleep(1)
+    try :
+        if comment_count == 0:
+            html = await browser.fetch(link, selector="div.post-content")
+        else:
+            html = await browser.fetch(link, selector="div.comment-row")
+        html_block, title = await html_to_description(html, link)
+        date = html_to_date(html)
+        items[id]['description_html'] = str(html_block)
+        if date:
+            items[id]['pubDate'] = date
+        if title:
+            items[id]['title'] = items[id]['title'] + ' ' + title
+    except Exception as e:
+        error = f"Error for {link} : {e}"
+        logger.error(f"Error : \n{error}")
+        items[id]['description_html'] = error
 
 async def parse(request):
     global logger
