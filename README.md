@@ -27,7 +27,6 @@ urllib.parse.quote(url, safe='')
 - 主函数是固定的，解析函数根据业务需求增加，为每个需要生成`RSS`的网址域名编写一个与域名同名的`.py`解析函数文件放在目录`/parsers/`下
 - 解析函数文件中需要定义一个名为`parse()`的函数做为入口，同步异步均可
 - `parse()`函数接收`request`，返回如下格式统一的字典给主函数，主函数由此生成`RSS`文档
--
     ```python
     info={}
     info['link']
@@ -60,6 +59,10 @@ RSS_BASE_URL = os.getenv("RSS_BASE_URL", '')
 RETRIES = int(os.getenv("RETRIES", 2))
 USERNAME = os.getenv("USERNAME", None)
 PASSWORD = os.getenv("PASSWORD", None)
+JANDANRSS_DB_CONNECTION_STRING = os.getenv('JANDANRSS_DB_CONNECTION_STRING', None)
+JANDANRSS_FETCH_FULL_PAGE: bool = os.getenv('JANDANRSS_FETCH_FULL_PAGE', 'False') == 'True'
+FILE_CACHE_BASE_URL = os.getenv('FILE_CACHE_BASE_URL', None)
+FILE_CACHE_TOKEN = os.getenv('FILE_CACHE_TOKEN', None)
 ```
 - `USERNAME`: 如果非空，则开启 http 认证
 
