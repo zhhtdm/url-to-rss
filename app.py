@@ -99,8 +99,6 @@ async def handle_query_request(request):
         logger.error(f"parser file not found {url}")
         raise web.HTTPNotFound(text="parser file not found")
 
-    browser: Browser = request.app["browser"]
-
     parse_function = await load_parse_function(parser_file)
     error = ''
     for attempt in range(1, RETRIES + 2):
@@ -122,7 +120,6 @@ async def handle_query_request(request):
     feed = info_to_feed(info)
     logger.info(f"Got {len(info.get('item'))} items - {url}")
     return web.Response(text=feed, content_type='application/xml')
-
 
 @web.middleware
 async def basic_auth_middleware(request, handler):

@@ -1,5 +1,5 @@
 bs4==0.0.2
 camo-sign==0.1.1
 lzhbrowser==0.1.3
-lzhfreshrssapi==0.2.1
+lzhminifluxapi==0.1.0
 python-dotenv==1.1.0
